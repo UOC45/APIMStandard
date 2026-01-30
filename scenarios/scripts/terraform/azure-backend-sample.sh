@@ -80,7 +80,14 @@ create_resource_group() {
 # Function to create storage account if it doesn't exist
 create_storage_account() {
   echo "Creating storage account and container $TF_BACKEND_STORAGE_ACCOUNT_NAME..."
-  az storage account create --name "$TF_BACKEND_STORAGE_ACCOUNT_NAME" --resource-group "$TF_BACKEND_RESOURCE_GROUP_NAME" --location "$AZURE_LOCATION" --sku Standard_LRS > /dev/null
+  az storage account create \
+    --name "$TF_BACKEND_STORAGE_ACCOUNT_NAME" \
+    --resource-group "$TF_BACKEND_RESOURCE_GROUP_NAME" \
+    --location "$AZURE_LOCATION" \
+    --sku Standard_LRS \
+    --min-tls-version TLS1_2 \
+    --allow-blob-public-access false \
+    --https-only true > /dev/null
   az storage container create --name "$TF_BACKEND_CONTAINER_NAME" --account-name "$TF_BACKEND_STORAGE_ACCOUNT_NAME" > /dev/null
 }
 
@@ -136,6 +143,7 @@ terraform {
     resource_group_name  = "$TF_BACKEND_RESOURCE_GROUP_NAME"
     storage_account_name = "$TF_BACKEND_STORAGE_ACCOUNT_NAME"
     container_name       = "$TF_BACKEND_CONTAINER_NAME"
+    key                  = "${ENVIRONMENT_TAG}-baseline-lza.tfstate"
   }
 }
 EOF

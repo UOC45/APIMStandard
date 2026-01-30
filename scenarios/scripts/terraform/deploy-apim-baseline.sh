@@ -7,7 +7,7 @@ env_file="./.env"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --auto-confirm|-y) auto_confirm=true; shift 2 ;;
+    --auto-confirm|-y) auto_confirm=true; shift ;;
     --delete-local-state|-d) delete_local_state=true; shift ;;
     --validate-commit|-t) validate_commit=true; shift ;;
     *) echo "Invalid argument: $1"; exit 1 ;;
@@ -92,6 +92,14 @@ if [[ ${#ENABLE_TELEMETRY} -eq 0 ]]; then
   telemetry=true
 fi
 
+# APIM SKU validation - default to StandardV2_1 if not set
+if [[ ${#APIM_SKU_NAME} -eq 0 ]]; then
+  APIM_SKU_NAME="StandardV2_1"
+  echo "APIM_SKU_NAME not set, defaulting to: ${APIM_SKU_NAME}"
+else
+  APIM_SKU_NAME="${APIM_SKU_NAME%$'\r'}"
+fi
+
 if [[ "$CERT_TYPE" == "selfsigned" ]]; then
   #cert_data=''
   #cert_Pwd=''
@@ -132,13 +140,16 @@ EOF
     -in "$script_dir/apim-self-signed.crt" \
     -passout pass:"$cert_pwd"
 
-  
+  # Convert to Windows mixed-mode path (C:/Users/...) for Terraform
+  cert_file=$(cygpath -m "$cert_file" 2>/dev/null || echo "$cert_file")
 
 
 
 else
   cert_file="$script_dir/../../certs/appgw.pfx"
-  cert_pwd=$(CERT_PWD)
+  cert_pwd="${CERT_PWD}"
+  # Convert to Windows mixed-mode path (C:/Users/...) for Terraform
+  cert_file=$(cygpath -m "$cert_file" 2>/dev/null || echo "$cert_file")
 fi
 
 ### MULTI REGION AND ZONE REDUNDANT UPDATES
@@ -211,11 +222,9 @@ appGatewayFqdn     	 = "${APPGATEWAY_FQDN}"
 appGatewayCertType 	 = "${CERT_TYPE}"
 certificatePath      = "${cert_file}"
 certificatePassword  = "${cert_pwd}"
-enableTelemetry    	 = "${telemetry}"
-multiRegionEnabled 	 = "${MULTI_REGION}"
-zoneRedundantEnabled = "${ZONE_REDUNDANT}"
-locationSecond 	     = "${AZURE_LOCATION2}"
+enableTelemetry    	 = ${telemetry}
 subscription_id      = "${SUBSCRIPTION_ID}"
+apimSkuName          = "${APIM_SKU_NAME}"
 EOF
 
 cat "$script_dir/../../apim-baseline/terraform/${ENVIRONMENT_TAG}.tfvars"

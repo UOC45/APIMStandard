@@ -18,7 +18,7 @@ data "azurerm_api_management" "apiManagementService" {
 resource "azapi_resource" "backend" {
   count = length(var.backend_uris)
 
-  type      = "Microsoft.ApiManagement/service/backends@2023-09-01-preview"
+  type      = "Microsoft.ApiManagement/service/backends@2024-05-01"
   name      = "aoai-${count.index}"
   parent_id = data.azurerm_api_management.apiManagementService.id
 

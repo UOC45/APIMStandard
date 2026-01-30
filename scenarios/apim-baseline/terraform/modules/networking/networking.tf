@@ -1,3 +1,6 @@
+# Refactored networking for Standard v2 APIM with Private Endpoints
+# Standard v2 doesn't require VNet injection - uses private endpoints instead
+
 locals {
   apim_cs_vnet_name            = "vnet-apim-cs-${var.resourceSuffix}"
   appgateway_subnet_name       = "snet-apgw-${var.resourceSuffix}"
@@ -5,12 +8,13 @@ locals {
   appgateway_snnsg             = "nsg-apgw-${var.resourceSuffix}"
   private_endpoint_subnet_name = "snet-prep-${var.resourceSuffix}"
   private_endpoint_snnsg       = "nsg-prep-${var.resourceSuffix}"
-  apim_subnet_name             = "snet-apim-${var.resourceSuffix}"
   owner                        = "APIM Const Set"
   appgateway_public_ipname     = "pip-appgw-${var.resourceSuffix}"
-  apim_snnsg                   = "nsg-apim-${var.resourceSuffix}"
 }
 
+#-------------------------------
+# Application Gateway NSG
+#-------------------------------
 resource "azurerm_network_security_group" "appgateway_nsg" {
   name                = local.appgateway_snnsg
   location            = var.location
@@ -63,86 +67,18 @@ resource "azurerm_network_security_group" "appgateway_nsg" {
     source_address_prefix      = "AzureLoadBalancer"
     destination_address_prefix = "*"
   }
-  lifecycle {
-    #prevent_destroy = true
-  }
-}
 
-resource "azurerm_network_security_group" "apim_snnsg_nsg" {
-  name                = local.apim_snnsg
-  location            = var.location
-  resource_group_name = var.resourceGroupName
-
+  # Allow outbound to private endpoints for APIM traffic
   security_rule {
-    name                       = "AllowApimVnetInbound"
-    priority                   = 2000
-    protocol                   = "Tcp"
-    destination_port_range     = "3443"
-    access                     = "Allow"
-    direction                  = "Inbound"
-    source_port_range          = "*"
-    source_address_prefix      = "ApiManagement"
-    destination_address_prefix = "VirtualNetwork"
-  }
-
-  security_rule {
-    name                       = "apim-azure-infra-lb"
-    priority                   = 2010
-    protocol                   = "Tcp"
-    destination_port_range     = "6390"
-    access                     = "Allow"
-    direction                  = "Inbound"
-    source_port_range          = "*"
-    source_address_prefix      = "AzureLoadBalancer"
-    destination_address_prefix = "VirtualNetwork"
-  }
-
-  security_rule {
-    name                       = "apim-azure-storage"
-    priority                   = 2000
+    name                       = "AllowOutboundToPrivateEndpoints"
+    priority                   = 200
     protocol                   = "Tcp"
     destination_port_range     = "443"
     access                     = "Allow"
     direction                  = "Outbound"
     source_port_range          = "*"
-    source_address_prefix      = "VirtualNetwork"
-    destination_address_prefix = "Storage"
-  }
-
-  security_rule {
-    name                       = "apim-azure-sql"
-    priority                   = 2010
-    protocol                   = "Tcp"
-    destination_port_range     = "1443"
-    access                     = "Allow"
-    direction                  = "Outbound"
-    source_port_range          = "*"
-    source_address_prefix      = "VirtualNetwork"
-    destination_address_prefix = "SQL"
-  }
-
-  security_rule {
-    name                       = "apim-azure-kv"
-    priority                   = 2020
-    protocol                   = "Tcp"
-    destination_port_range     = "443"
-    access                     = "Allow"
-    direction                  = "Outbound"
-    source_port_range          = "*"
-    source_address_prefix      = "VirtualNetwork"
-    destination_address_prefix = "AzureKeyVault"
-  }
-
-  security_rule {
-    name                       = "apim-azure-monitor"
-    priority                   = 2030
-    protocol                   = "Tcp"
-    destination_port_range     = "443"
-    access                     = "Allow"
-    direction                  = "Outbound"
-    source_port_range          = "*"
-    source_address_prefix      = "VirtualNetwork"
-    destination_address_prefix = "AzureMonitor"
+    source_address_prefix      = var.appGatewayAddressPrefix
+    destination_address_prefix = var.privateEndpointAddressPrefix
   }
 
   lifecycle {
@@ -150,16 +86,47 @@ resource "azurerm_network_security_group" "apim_snnsg_nsg" {
   }
 }
 
-resource "azurerm_network_security_group" "private_endpoint_snnsg_nsg" {
+#-------------------------------
+# Private Endpoint Subnet NSG - allows traffic from App Gateway and VNet
+#-------------------------------
+resource "azurerm_network_security_group" "private_endpoint_nsg" {
   name                = local.private_endpoint_snnsg
   location            = var.location
   resource_group_name = var.resourceGroupName
 
+  security_rule {
+    name                       = "AllowHttpsFromAppGateway"
+    priority                   = 100
+    protocol                   = "Tcp"
+    destination_port_range     = "443"
+    access                     = "Allow"
+    direction                  = "Inbound"
+    source_port_range          = "*"
+    source_address_prefix      = var.appGatewayAddressPrefix
+    destination_address_prefix = var.privateEndpointAddressPrefix
+  }
+
+  security_rule {
+    name                       = "AllowHttpsFromVNet"
+    priority                   = 110
+    protocol                   = "Tcp"
+    destination_port_range     = "443"
+    access                     = "Allow"
+    direction                  = "Inbound"
+    source_port_range          = "*"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = var.privateEndpointAddressPrefix
+  }
+
   lifecycle {
     #prevent_destroy = true
   }
 }
 
+#-------------------------------
+# Virtual Network
+# NOTE: For Standard v2, we remove the dedicated APIM subnet since it uses private endpoints
+#-------------------------------
 resource "azurerm_virtual_network" "apim_cs_vnet" {
   name                = local.apim_cs_vnet_name
   location            = var.location
@@ -175,6 +142,9 @@ resource "azurerm_virtual_network" "apim_cs_vnet" {
   }
 }
 
+#-------------------------------
+# Application Gateway Subnet
+#-------------------------------
 resource "azurerm_subnet" "appgateway_subnet" {
   name                 = local.appgateway_subnet_name
   resource_group_name  = var.resourceGroupName
@@ -195,11 +165,17 @@ resource "azurerm_subnet_network_security_group_association" "appgateway_subnet"
   }
 }
 
+#-------------------------------
+# Private Endpoint Subnet - used for APIM private endpoint and other services
+#-------------------------------
 resource "azurerm_subnet" "private_endpoint_subnet" {
   name                 = local.private_endpoint_subnet_name
   resource_group_name  = var.resourceGroupName
   virtual_network_name = azurerm_virtual_network.apim_cs_vnet.name
   address_prefixes     = [var.privateEndpointAddressPrefix]
+
+  # Required for private endpoints
+  private_endpoint_network_policies = "Disabled"
 
   lifecycle {
     #prevent_destroy = true
@@ -208,13 +184,16 @@ resource "azurerm_subnet" "private_endpoint_subnet" {
 
 resource "azurerm_subnet_network_security_group_association" "private_endpoint_subnet" {
   subnet_id                 = azurerm_subnet.private_endpoint_subnet.id
-  network_security_group_id = azurerm_network_security_group.private_endpoint_snnsg_nsg.id
+  network_security_group_id = azurerm_network_security_group.private_endpoint_nsg.id
 
   lifecycle {
     #prevent_destroy = true
   }
 }
 
+#-------------------------------
+# Deployment Subnet (for certificate generation via container instances)
+#-------------------------------
 resource "azurerm_subnet" "deploy_subnet" {
   name                 = local.deploy_subnet_name
   resource_group_name  = var.resourceGroupName
@@ -237,20 +216,16 @@ resource "azurerm_subnet" "deploy_subnet" {
   }
 }
 
-resource "azurerm_subnet" "apim_subnet" {
-  name                 = local.apim_subnet_name
-  resource_group_name  = var.resourceGroupName
-  virtual_network_name = azurerm_virtual_network.apim_cs_vnet.name
-  address_prefixes     = [var.apimAddressPrefix]
-
-  lifecycle {
-    #prevent_destroy = true
-  }
-}
-
-resource "azurerm_subnet_network_security_group_association" "apim_subnet" {
-  subnet_id                 = azurerm_subnet.apim_subnet.id
-  network_security_group_id = azurerm_network_security_group.apim_snnsg_nsg.id
+#-------------------------------
+# Public IP for Application Gateway
+#-------------------------------
+resource "azurerm_public_ip" "appgw_pip" {
+  name                = local.appgateway_public_ipname
+  location            = var.location
+  resource_group_name = var.resourceGroupName
+  sku                 = "Standard"
+  allocation_method   = "Static"
+  zones               = length(var.zones) > 0 ? var.zones : null
 
   lifecycle {
     #prevent_destroy = true

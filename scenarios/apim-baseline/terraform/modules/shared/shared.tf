@@ -5,14 +5,16 @@ data "azurerm_client_config" "current" {}
 #-------------------------------
 
 resource "azurerm_key_vault" "key_vault" {
-  name                = var.keyVaultName
-  location            = var.location
-  resource_group_name = var.resourceGroupName
-  tenant_id           = data.azurerm_client_config.current.tenant_id
-  sku_name            = var.keyVaultSku
-  # -> Bicep has keyvault as private, should we change this?
-  # -> This will need the certificate to be created through a azurerm_template_deployment resource
+  name                          = var.keyVaultName
+  location                      = var.location
+  resource_group_name           = var.resourceGroupName
+  tenant_id                     = data.azurerm_client_config.current.tenant_id
+  sku_name                      = var.keyVaultSku
+  tags                          = var.tags
+  soft_delete_retention_days    = 90
+  purge_protection_enabled      = true
   public_network_access_enabled = false
+
   network_acls {
     bypass         = "AzureServices"
     default_action = "Deny"

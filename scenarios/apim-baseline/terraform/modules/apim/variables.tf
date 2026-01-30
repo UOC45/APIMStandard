@@ -20,6 +20,11 @@ variable "resourceGroupName" {
   description = "The name of the resource group"
 }
 
+variable "networkingResourceGroupName" {
+  type        = string
+  description = "The name of the networking resource group"
+}
+
 #-------------------------------
 # APIM specific variables
 #-------------------------------
@@ -42,13 +47,23 @@ variable "publisherEmail" {
 }
 
 variable "skuName" {
-  description = "String consisting of two parts separated by an underscore(_). The first part is the name, valid values include: Consumption, Developer, Basic, Standard and Premium. The second part is the capacity (e.g. the number of deployed units of the sku), which must be a positive integer (e.g. Developer_1)"
+  description = "The SKU name for Standard v2 APIM. Valid values: StandardV2_1, BasicV2_1"
   type        = string
-  default     = "Developer_1"
+  default     = "StandardV2_1"
+
+  validation {
+    condition     = can(regex("^(StandardV2|BasicV2)_[0-9]+$", var.skuName))
+    error_message = "The skuName must be in format StandardV2_X or BasicV2_X where X is the capacity."
+  }
 }
 
-variable "apimSubnetId" {
-  description = "The subnet id of the apim instance"
+variable "privateEndpointSubnetId" {
+  description = "The subnet id for the APIM private endpoint"
+  type        = string
+}
+
+variable "vnetId" {
+  description = "The ID of the Virtual Network for DNS zone linking"
   type        = string
 }
 
@@ -62,14 +77,12 @@ variable "instrumentationKey" {
   description = "App insights instrumentation key"
 }
 
+variable "appInsightsId" {
+  type        = string
+  description = "The resource ID of the Application Insights instance"
+}
+
 variable "sharedResourceGroupName" {
   type        = string
   description = "The name of the shared resource group"
 }
-
-variable "zoneRedundantEnabled" {
-  description = "Boolean to indicate if the deployment is zone redundant"
-  type        = bool
-  default     = false
-}
-

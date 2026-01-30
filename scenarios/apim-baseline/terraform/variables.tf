@@ -7,19 +7,24 @@ variable "location" {
 variable "workloadName" {
   type        = string
   description = "A suffix for naming"
-  default     = "apimdemo"
+  default     = "apimv2"
 }
 
 variable "appGatewayFqdn" {
   type        = string
-  description = "The Azure location to deploy to"
+  description = "The FQDN for the Application Gateway"
   default     = "apim.example.com"
 }
 
 variable "appGatewayCertType" {
   type        = string
-  description = "selfsigned will create a self-signed certificate for the APPGATEWAY_FQDN. custom will use an existing certificate in pfx format that needs to be available in the [certs](../../certs) folder and named appgw.pfx "
+  description = "selfsigned or custom certificate type"
   default     = "selfsigned"
+
+  validation {
+    condition     = contains(["selfsigned", "custom"], var.appGatewayCertType)
+    error_message = "appGatewayCertType must be either 'selfsigned' or 'custom'."
+  }
 }
 
 variable "environment" {
@@ -30,7 +35,7 @@ variable "environment" {
 
 variable "keyVaultSku" {
   type        = string
-  description = "The Name of the SKU used for this Key Vault. Possible values are standard and premium"
+  description = "The SKU for Key Vault"
   default     = "standard"
 }
 
@@ -58,101 +63,58 @@ variable "identifier" {
   type        = string
 }
 
-# Primary Region Network
+# Network Variables
 
 variable "apimCSVNetNameAddressPrefix" {
-  description = "APIM CSV Net Name Address Prefix"
+  description = "VNet Address Prefix"
   type        = string
   default     = "10.2.0.0/16"
 }
 
 variable "appGatewayAddressPrefix" {
-  description = "App Gateway Address Prefix"
+  description = "App Gateway Subnet Address Prefix"
   type        = string
   default     = "10.2.4.0/24"
 }
 
-variable "apimAddressPrefix" {
-  description = "APIM Address Prefix"
-  type        = string
-  default     = "10.2.7.0/24"
-}
-
 variable "privateEndpointAddressPrefix" {
-  description = "Private Endpoint Address Prefix"
+  description = "Private Endpoint Subnet Address Prefix"
   type        = string
   default     = "10.2.5.0/24"
 }
 
 variable "deploymentAddressPrefix" {
-  description = "Deployment Address Prefix"
+  description = "Deployment Subnet Address Prefix"
   type        = string
   default     = "10.2.8.0/24"
 }
 
-# HA Scenarios Variables
-
-# This will deploy APIM to primary region and extend a location to a secondary region.
-# This uses the Premium V1 SKU of APIM.
-variable "multiRegionEnabled" {
-  description = "Boolean to indicate if the deployment is multi-region"
-  type        = bool
-  default     = false
+variable "zones" {
+  description = "Availability zones for zone-redundant resources (e.g., Public IP). Use empty list for regions without zone support."
+  type        = list(string)
+  default     = ["1", "2", "3"]
 }
 
-variable "zoneRedundantEnabled" {
-  description = "Boolean to indicate if the deployment is zone redundant"
-  type        = bool
-  default     = false
-}
+# APIM Standard v2 Variables
 
-variable "locationSecond" {
+variable "apimSkuName" {
+  description = "The SKU name for Standard v2 APIM (e.g., StandardV2_1, BasicV2_1)"
   type        = string
-  description = "The Azure location in which the secondary deployment is happening"
-  default     = "centralus"
-}
+  default     = "StandardV2_1"
 
-# Secondary Region Network
-
-variable "apimCSVNetNameSecondAddressPrefix" {
-  description = "APIM CSV Net Name Address Prefix"
-  type        = string
-  default     = "10.3.0.0/16"
-}
-
-variable "appGatewaySecondAddressPrefix" {
-  description = "App Gateway Address Prefix"
-  type        = string
-  default     = "10.3.4.0/24"
-}
-
-variable "apimSecondAddressPrefix" {
-  description = "APIM Address Prefix"
-  type        = string
-  default     = "10.3.7.0/24"
-}
-
-variable "privateEndpointSecondAddressPrefix" {
-  description = "Private Endpoint Address Prefix"
-  type        = string
-  default     = "10.3.5.0/24"
-}
-
-variable "deploymentSecondAddressPrefix" {
-  description = "Deployment Address Prefix"
-  type        = string
-  default     = "10.3.8.0/24"
+  validation {
+    condition     = can(regex("^(StandardV2|BasicV2)_[0-9]+$", var.apimSkuName))
+    error_message = "apimSkuName must be in format 'StandardV2_X' or 'BasicV2_X' where X is the capacity (e.g., StandardV2_1, BasicV2_1)."
+  }
 }
 
 variable "subscription_id" {
+  description = "The Azure subscription ID for the deployment"
   type        = string
-  description = "The Azure subscription ID to deploy to"
 }
 
-# To avoid Terraform missing variable warnings
-variable "certData"        { default="" }
-variable "certKey"         { default="" }
-variable "enableTelemetry" { default="" }
-
-
-
+variable "enableTelemetry" {
+  description = "Enable telemetry for the deployment"
+  type        = bool
+  default     = true
+}

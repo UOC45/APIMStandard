@@ -25,7 +25,7 @@ variable "subnet_id" {
 
 variable "is_manual_connection" {
   description = "(Optional) Specifies whether the private endpoint connection requires manual approval from the remote resource owner."
-  type        = string
+  type        = bool
   default     = false  
 }
 
@@ -52,10 +52,7 @@ variable "private_dns_zone_group_ids" {
 }
 
 variable "tags" {
-  description = "(Optional) Specifies the tags of the network security group"
+  description = "(Optional) Specifies the tags of the private endpoint"
+  type        = map(string)
   default     = {}
-}
-
-variable "private_dns" {
-  default = {}
 }

@@ -199,6 +199,71 @@ resource funcAppIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-
   location: sites_funcappAPIMCSBackendMicroServiceA_location
 }
 
+// Role assignments for managed identity to access storage account
+// Storage Blob Data Owner role
+resource storageBlobDataOwnerRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+  name: 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
+  scope: tenant()
+}
+
+resource storageBlobRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccounts_saapimcsbackend_name_resource.id, funcAppIdentity.id, storageBlobDataOwnerRole.id)
+  scope: storageAccounts_saapimcsbackend_name_resource
+  properties: {
+    principalId: funcAppIdentity.properties.principalId
+    roleDefinitionId: storageBlobDataOwnerRole.id
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Storage Queue Data Contributor role
+resource storageQueueDataContributorRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+  name: '974c5e8b-45b9-4653-ba55-5f855dd0fb88'
+  scope: tenant()
+}
+
+resource storageQueueRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccounts_saapimcsbackend_name_resource.id, funcAppIdentity.id, storageQueueDataContributorRole.id)
+  scope: storageAccounts_saapimcsbackend_name_resource
+  properties: {
+    principalId: funcAppIdentity.properties.principalId
+    roleDefinitionId: storageQueueDataContributorRole.id
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Storage Table Data Contributor role
+resource storageTableDataContributorRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+  name: '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3'
+  scope: tenant()
+}
+
+resource storageTableRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccounts_saapimcsbackend_name_resource.id, funcAppIdentity.id, storageTableDataContributorRole.id)
+  scope: storageAccounts_saapimcsbackend_name_resource
+  properties: {
+    principalId: funcAppIdentity.properties.principalId
+    roleDefinitionId: storageTableDataContributorRole.id
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Storage File Data SMB Share Contributor role
+resource storageFileDataContributorRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+  name: '0c867c2a-1d8c-454a-a3db-ab2ea1bdc8bb'
+  scope: tenant()
+}
+
+resource storageFileRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccounts_saapimcsbackend_name_resource.id, funcAppIdentity.id, storageFileDataContributorRole.id)
+  scope: storageAccounts_saapimcsbackend_name_resource
+  properties: {
+    principalId: funcAppIdentity.properties.principalId
+    roleDefinitionId: storageFileDataContributorRole.id
+    principalType: 'ServicePrincipal'
+  }
+}
+
 // Azure Function App (Linux, .NET Core 3.1)
 resource sites_funcappAPIMCSBackendMicroServiceA_name_resource 'Microsoft.Web/sites@2018-11-01' = {
   name: sites_funcappAPIMCSBackendMicroServiceA_name
@@ -233,8 +298,16 @@ resource sites_funcappAPIMCSBackendMicroServiceA_name_resource 'Microsoft.Web/si
       linuxFxVersion: (isReserved ? linuxFxVersion : null)
       appSettings: [
         {
-          name: 'AzureWebJobsStorage'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccounts_saapimcsbackend_name};AccountKey=${storageAccounts_saapimcsbackend_name_resource.listKeys().keys[0].value}'
+          name: 'AzureWebJobsStorage__accountName'
+          value: storageAccounts_saapimcsbackend_name
+        }
+        {
+          name: 'AzureWebJobsStorage__credential'
+          value: 'managedidentity'
+        }
+        {
+          name: 'AzureWebJobsStorage__clientId'
+          value: funcAppIdentity.properties.clientId
         }
         {
           name: 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING'
@@ -280,6 +353,10 @@ resource sites_funcappAPIMCSBackendMicroServiceA_name_resource 'Microsoft.Web/si
     blobStoragePrivateEndpoint
     tableStoragePrivateEndpoint
     fileStoragePrivateEndpoint
+    storageBlobRoleAssignment
+    storageQueueRoleAssignment
+    storageTableRoleAssignment
+    storageFileRoleAssignment
   ]
 }
 

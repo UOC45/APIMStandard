@@ -10,10 +10,11 @@ variable "resource_group_name" {
 
 variable "tags" {
   description = "(Optional) Specifies the tags of the private dns zone"
+  type        = map(string)
   default     = {}
 }
 
 variable "virtual_networks_to_link_id" {
-  description = "(Optional) Specifies the virtual networks id to which create a virtual network link"
+  description = "(Required) Specifies the virtual network id to which create a virtual network link"
   type        = string
 }

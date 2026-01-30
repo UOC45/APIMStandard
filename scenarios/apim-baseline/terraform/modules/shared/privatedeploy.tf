@@ -5,6 +5,8 @@ resource "azurerm_storage_account" "privatedeploystorage" {
   resource_group_name      = var.resourceGroupName
   account_tier             = "Standard"
   account_replication_type = "LRS"
+  min_tls_version          = "TLS1_2"
+  tags                     = var.tags
 
   allow_nested_items_to_be_public = false
   shared_access_key_enabled = false
@@ -24,6 +26,7 @@ resource "azurerm_user_assigned_identity" "privatedeploymanagedidentity" {
   name                = "mi-deploy-${var.resourceSuffix}"
   location            = var.location
   resource_group_name = var.resourceGroupName
+  tags                = var.tags
 }
 
 # Resource: Role Assignment

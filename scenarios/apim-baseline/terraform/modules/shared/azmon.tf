@@ -7,7 +7,8 @@ resource "azurerm_log_analytics_workspace" "log_analytics_workspace" {
   location            = var.location
   resource_group_name = var.resourceGroupName
   sku                 = "PerGB2018"
-  retention_in_days   = 30
+  retention_in_days   = var.log_retention_days
+  tags                = var.tags
 
   lifecycle {
     #prevent_destroy = true
@@ -24,6 +25,7 @@ resource "azurerm_application_insights" "shared_apim_insight" {
   resource_group_name = var.resourceGroupName
   application_type    = "web"
   workspace_id        = azurerm_log_analytics_workspace.log_analytics_workspace.id
+  tags                = var.tags
 
   lifecycle {
     #prevent_destroy = true

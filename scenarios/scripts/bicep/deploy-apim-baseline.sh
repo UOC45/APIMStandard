@@ -9,6 +9,15 @@ if [[ -f "$script_dir/../../.env" ]]; then
 	source "$script_dir/../../.env"
 fi
 
+# Verify Azure CLI login
+if ! az account show > /dev/null 2>&1; then
+  echo "You need to login to Azure CLI. Run 'az login' and try again."
+  exit 6
+fi
+echo "Currently selected subscription:"
+az account show --query "{subscriptionId:id, subscriptionName:name}" --output table
+echo -e "\n"
+
 if [[ ${#AZURE_LOCATION} -eq 0 ]]; then
   echo 'ERROR: Missing environment variable AZURE_LOCATION' 1>&2
   exit 6
@@ -50,10 +59,10 @@ fi
 
 if [[ "$CERT_TYPE" == "selfsigned" ]]; then
   cert_data=''
-  cert_Pwd=''
+  cert_pwd=''
 else
   cert_data=$(base64 -w 0 "$script_dir/../../certs/appgw.pfx")
-  cert_pwd=$(CERT_PWD)
+  cert_pwd="${CERT_PWD}"
 fi
 
 if [[ ${#RANDOM_IDENTIFIER} -eq 0 ]]; then

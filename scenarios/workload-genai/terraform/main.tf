@@ -112,6 +112,10 @@ module "simulatedPTUDeployment" {
   public_network_access_enabled = var.openai_public_network_access_enabled
   apimIdentityName              = data.azurerm_user_assigned_identity.apimIdentity.name
   apimResourceGroupName         = local.apimResourceGroupName
+
+  depends_on = [
+    module.openai_private_dns_zone
+  ]
 }
 
 module "simulatedPaygoOneDeployment" {
@@ -125,6 +129,10 @@ module "simulatedPaygoOneDeployment" {
   public_network_access_enabled = var.openai_public_network_access_enabled
   apimIdentityName              = data.azurerm_user_assigned_identity.apimIdentity.name
   apimResourceGroupName         = local.apimResourceGroupName
+
+  depends_on = [
+    module.openai_private_dns_zone
+  ]
 }
 
 module "simulatedPaygoTwoDeployment" {
@@ -138,6 +146,10 @@ module "simulatedPaygoTwoDeployment" {
   public_network_access_enabled = var.openai_public_network_access_enabled
   apimIdentityName              = data.azurerm_user_assigned_identity.apimIdentity.name
   apimResourceGroupName         = local.apimResourceGroupName
+
+  depends_on = [
+    module.openai_private_dns_zone
+  ]
 }
 
 module "eventHub" {

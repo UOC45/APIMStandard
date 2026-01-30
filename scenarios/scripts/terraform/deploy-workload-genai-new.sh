@@ -7,7 +7,7 @@ env_file="./.env"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --auto-confirm|-y) auto_confirm=true; shift 2 ;;
+    --auto-confirm|-y) auto_confirm=true; shift ;;
     --delete-local-state|-d) delete_local_state=true; shift ;;
     *) echo "Invalid argument: $1"; exit 1 ;;
   esac
@@ -57,6 +57,14 @@ if [[ ${#AZURE_LOCATION} -eq 0 ]]; then
   exit 6
 else
   AZURE_LOCATION="${AZURE_LOCATION%$'\r'}"
+fi
+
+# Validate region supports Azure OpenAI with gpt-4o-mini
+SUPPORTED_OPENAI_REGIONS=("eastus" "eastus2" "westus" "westus3" "southcentralus" "northcentralus" "swedencentral" "uksouth" "westeurope" "francecentral" "australiaeast" "japaneast" "canadaeast")
+if [[ ! " ${SUPPORTED_OPENAI_REGIONS[*]} " =~ " ${AZURE_LOCATION} " ]]; then
+  echo "WARNING: Region '${AZURE_LOCATION}' may not support Azure OpenAI gpt-4o-mini model."
+  echo "Supported regions: ${SUPPORTED_OPENAI_REGIONS[*]}"
+  echo "Proceeding anyway - verify model availability in your region."
 fi
 
 if [[ ${#RESOURCE_NAME_PREFIX} -eq 0 ]]; then
@@ -234,7 +242,7 @@ output=$(curl -s -S -X POST -H "Authorization: Bearer $TOKEN" \
 PRIMARY_KEY=$(echo "$output" | jq -r '.primaryKey')
 
 APPGATEWAYPUBLICIPADDRESS=$(az network public-ip show --resource-group "$NETWORK_RESOURCE_GROUP" --name "$APPGATEWAY_PIP" --query ipAddress -o tsv)
-testUri="curl -k -H 'Host: ${APPGATEWAY_FQDN}' -H 'Ocp-Apim-Subscription-Key: ${PRIMARY_KEY}' -H 'Content-Type: application/json' https://${APPGATEWAYPUBLICIPADDRESS}/openai/deployments/gpt-35-turbo-16k/chat/completions?api-version=2024-02-15-preview -d '{\"messages\": [{\"role\":\"system\",\"content\":\"You are an AI assistant that helps people find information.\"}]}'"
+testUri="curl -k -H 'Host: ${APPGATEWAY_FQDN}' -H 'Ocp-Apim-Subscription-Key: ${PRIMARY_KEY}' -H 'Content-Type: application/json' https://${APPGATEWAYPUBLICIPADDRESS}/openai/deployments/gpt-4o-mini/chat/completions?api-version=2024-10-21 -d '{\"messages\": [{\"role\":\"system\",\"content\":\"You are an AI assistant that helps people find information.\"}]}'"
 echo "Test the deployment by running the following command: ${testUri}"
 echo -e "\n"
 
@@ -247,7 +255,7 @@ mt_product1_sub_output=$(curl -s -S -X POST -H "Authorization: Bearer $TOKEN" \
 # Extract the subscription keys
 MT_PRODUCT1_SUB_PRIMARY_KEY=$(echo "$mt_product1_sub_output" | jq -r '.primaryKey')
 
-testUri="curl -k -H 'Host: ${APPGATEWAY_FQDN}' -H 'Ocp-Apim-Subscription-Key: ${MT_PRODUCT1_SUB_PRIMARY_KEY}' -H 'Content-Type: application/json' https://${APPGATEWAYPUBLICIPADDRESS}/openai/deployments/gpt-35-turbo-16k/chat/completions?api-version=2024-02-15-preview -d '{\"messages\": [{\"role\":\"system\",\"content\":\"You are an AI assistant that helps people find information.\"}]}'"
+testUri="curl -k -H 'Host: ${APPGATEWAY_FQDN}' -H 'Ocp-Apim-Subscription-Key: ${MT_PRODUCT1_SUB_PRIMARY_KEY}' -H 'Content-Type: application/json' https://${APPGATEWAYPUBLICIPADDRESS}/openai/deployments/gpt-4o-mini/chat/completions?api-version=2024-10-21 -d '{\"messages\": [{\"role\":\"system\",\"content\":\"You are an AI assistant that helps people find information.\"}]}'"
 echo "Test the deployment for multi-tenant Product1 by running the following command: ${testUri}"
 echo -e "\n"
 
@@ -260,6 +268,6 @@ mt_product2_sub_output=$(curl -s -S -X POST -H "Authorization: Bearer $TOKEN" \
 # Extract the subscription keys
 MT_PRODUCT2_SUB_PRIMARY_KEY=$(echo "$mt_product2_sub_output" | jq -r '.primaryKey')
 
-testUri="curl -k -H 'Host: ${APPGATEWAY_FQDN}' -H 'Ocp-Apim-Subscription-Key: ${MT_PRODUCT2_SUB_PRIMARY_KEY}' -H 'Content-Type: application/json' https://${APPGATEWAYPUBLICIPADDRESS}/openai/deployments/gpt-35-turbo-16k/chat/completions?api-version=2024-02-15-preview -d '{\"messages\": [{\"role\":\"system\",\"content\":\"You are an AI assistant that helps people find information.\"}]}'"
+testUri="curl -k -H 'Host: ${APPGATEWAY_FQDN}' -H 'Ocp-Apim-Subscription-Key: ${MT_PRODUCT2_SUB_PRIMARY_KEY}' -H 'Content-Type: application/json' https://${APPGATEWAYPUBLICIPADDRESS}/openai/deployments/gpt-4o-mini/chat/completions?api-version=2024-10-21 -d '{\"messages\": [{\"role\":\"system\",\"content\":\"You are an AI assistant that helps people find information.\"}]}'"
 echo "Test the deployment for multi-tenant Product2 by running the following command: ${testUri}"
 echo -e "\n"
