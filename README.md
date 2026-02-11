@@ -2,10 +2,6 @@
 
 Azure API Management Landing Zone Accelerator provides packaged guidance with reference architecture and reference implementation along with design guidance recommendations and considerations on critical design areas for provisioning APIM with a secure baseline. They are aligned with industry proven practices, such as those presented in [Azure landing zones](https://learn.microsoft.com/azure/cloud-adoption-framework/ready/landing-zone/) guidance in the Cloud Adoption Framework.
 
-## Reference Architecture
-
-![image](/docs/images/apim-secure-baseline.jpg)
-
 ## :mag: Design areas
 
 The enterprise architecture is broken down into six different design areas, where you can find the links to each at:

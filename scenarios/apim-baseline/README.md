@@ -6,8 +6,6 @@ Traffic flows through Azure Application Gateway (with WAF) to APIM via Private E
 
 By the end of this deployment guide, you would have deployed an Azure API Management Standard v2 instance secured with Private Endpoints.
 
-![Architectural diagram showing an Azure API Management deployment with Private Endpoints.](../../docs/images/apim-secure-baseline.jpg)
-
 ## Core architecture components
 
 - Azure API Management (Standard v2 SKU)
