@@ -98,6 +98,8 @@ resource "azurerm_application_gateway" "network" {
     tier = "WAF_v2"
   }
 
+
+
   ssl_certificate {
     name                = var.appGatewayFqdn
     #key_vault_secret_id = "https://${var.keyVaultName}.vault.azure.net:443/secrets/${local.secretName}"
@@ -128,18 +130,7 @@ resource "azurerm_application_gateway" "network" {
 
   backend_address_pool {
     name  = "apim"
-    fqdns = [var.primaryBackendendFqdn]
-  }
-
-  backend_http_settings {
-    name                                = "default"
-    port                                = 80
-    protocol                            = "Http"
-    cookie_based_affinity               = "Disabled"
-    pick_host_name_from_backend_address = false
-    affinity_cookie_name                = "ApplicationGatewayAffinity"
-    request_timeout                     = 20
-
+    fqdns = [var.primaryBackendFqdn]
   }
 
   backend_http_settings {
@@ -147,7 +138,7 @@ resource "azurerm_application_gateway" "network" {
     port                                = 443
     protocol                            = "Https"
     cookie_based_affinity               = "Disabled"
-    host_name                           = var.primaryBackendendFqdn
+    host_name                           = var.primaryBackendFqdn
     pick_host_name_from_backend_address = false
     request_timeout                     = 20
     probe_name                          = local.httpsBackendProbeName
@@ -170,6 +161,22 @@ resource "azurerm_application_gateway" "network" {
     ssl_certificate_name           = var.appGatewayFqdn
   }
 
+  redirect_configuration {
+    name                 = "redirect-to-https"
+    redirect_type        = "Permanent"
+    target_listener_name = "https"
+    include_path         = true
+    include_query_string = true
+  }
+
+  request_routing_rule {
+    name                        = "http-to-https"
+    rule_type                   = "Basic"
+    http_listener_name          = "default"
+    redirect_configuration_name = "redirect-to-https"
+    priority                    = 90
+  }
+
   request_routing_rule {
     name                       = "apim"
     rule_type                  = "Basic"
@@ -182,7 +189,7 @@ resource "azurerm_application_gateway" "network" {
   probe {
     name                                      = "APIM"
     protocol                                  = "Https"
-    host                                      = var.primaryBackendendFqdn
+    host                                      = var.primaryBackendFqdn
     path                                      = var.probe_url
     interval                                  = 30
     timeout                                   = 30
@@ -197,13 +204,11 @@ resource "azurerm_application_gateway" "network" {
 
   waf_configuration {
     enabled                  = true
-    firewall_mode            = "Detection"
+    firewall_mode            = "Prevention"
     rule_set_type            = "OWASP"
-    rule_set_version         = "3.0"
-    request_body_check       = true
-    max_request_body_size_kb = 128
-    file_upload_limit_mb     = 100
+    rule_set_version         = "3.2"
   }
+
 
   enable_http2 = true
 

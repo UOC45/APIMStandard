@@ -24,7 +24,7 @@ This repo contains the Azure landing zone accelerator's reference implementation
 
 ### :arrow_forward: [Scenario 1: Azure API Management - Secure Baseline](scenarios/apim-baseline/README.md)
 
-Deploys APIM with a secure baseline configuration with no backends and a sample API. 
+Deploys APIM Standard v2 with Private Endpoints for secure network isolation, including Application Gateway with WAF and a sample Echo API. 
 
 ### :arrow_forward: [Scenario 2: Azure API Management - Function Backend](scenarios/workload-functions/README.md)
 

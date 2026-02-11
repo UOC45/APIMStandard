@@ -9,12 +9,6 @@ variable "resourceSuffix" {
   description = "A suffix for naming"
 }
 
-variable "environment" {
-  type        = string
-  description = "Environment"
-  default     = "dev"
-}
-
 variable "resourceGroupName" {
   type        = string
   description = "The name of the resource group"
@@ -32,18 +26,33 @@ variable "networkingResourceGroupName" {
 variable "keyVaultName" {
   description = "The name of the Key Vault"
   type        = string
+
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9-]{3,24}$", var.keyVaultName))
+    error_message = "The keyVaultName must be between 3 and 24 characters and contain only alphanumerics and hyphens."
+  }
 }
 
 variable "publisherName" {
   description = "The name of the publisher/company"
   type        = string
   default     = "Contoso"
+
+  validation {
+    condition     = length(var.publisherName) > 0
+    error_message = "The publisherName cannot be empty."
+  }
 }
 
 variable "publisherEmail" {
   description = "The email of the publisher/company; shows as administrator email in APIM"
   type        = string
   default     = "apim@contoso.com"
+
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$", var.publisherEmail))
+    error_message = "The publisherEmail must be a valid email address."
+  }
 }
 
 variable "skuName" {
@@ -60,26 +69,40 @@ variable "skuName" {
 variable "privateEndpointSubnetId" {
   description = "The subnet id for the APIM private endpoint"
   type        = string
+
+  validation {
+    condition     = can(regex("^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft.Network/virtualNetworks/[^/]+/subnets/[^/]+$", var.privateEndpointSubnetId))
+    error_message = "The privateEndpointSubnetId must be a valid Azure Subnet ID."
+  }
 }
 
-variable "vnetId" {
-  description = "The ID of the Virtual Network for DNS zone linking"
+variable "appInsightsConnectionString" {
   type        = string
+  description = "App Insights connection string (preferred over instrumentation key)"
+  sensitive   = true
+  default     = ""
 }
 
-variable "workspaceId" {
-  type        = string
-  description = "The workspace id of the log analytics workspace"
-}
-
+# Deprecated: Use appInsightsConnectionString instead
 variable "instrumentationKey" {
   type        = string
-  description = "App insights instrumentation key"
+  description = "App insights instrumentation key (deprecated - use appInsightsConnectionString)"
+  sensitive   = true
+
+  validation {
+    condition     = can(regex("^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$", var.instrumentationKey))
+    error_message = "The instrumentationKey must be a valid GUID."
+  }
 }
 
 variable "appInsightsId" {
   type        = string
   description = "The resource ID of the Application Insights instance"
+
+  validation {
+    condition     = startswith(var.appInsightsId, "/subscriptions/")
+    error_message = "The appInsightsId must be a valid Azure Resource ID."
+  }
 }
 
 variable "sharedResourceGroupName" {

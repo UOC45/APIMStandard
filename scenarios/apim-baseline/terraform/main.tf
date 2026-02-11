@@ -1,14 +1,14 @@
 # Main deployment for Standard v2 APIM with Private Endpoints
 
 locals {
-  resourceSuffix              = "${var.workloadName}-${var.environment}-${var.location}-${var.identifier}"
+  resourceSuffix              = "${var.workload_name}-${var.environment}-${var.location}-${var.identifier}"
   networkingResourceGroupName = "rg-networking-${local.resourceSuffix}"
   sharedResourceGroupName     = "rg-shared-${local.resourceSuffix}"
   apimResourceGroupName       = "rg-apim-${local.resourceSuffix}"
-  keyVaultName                = "kv-${var.workloadName}-${var.environment}-${var.identifier}"
+  keyVaultName                = "kv-${var.workload_name}-${var.environment}-${var.identifier}"
   tags = {
     Environment = var.environment
-    Workload    = var.workloadName
+    Workload    = var.workload_name
     ManagedBy   = "Terraform"
   }
 }
@@ -17,18 +17,21 @@ locals {
 # Resource Groups
 #-------------------------------
 resource "azurerm_resource_group" "networking" {
+  provider = azurerm.networking
   name     = local.networkingResourceGroupName
   location = var.location
   tags     = local.tags
 }
 
 resource "azurerm_resource_group" "shared" {
+  provider = azurerm.shared
   name     = local.sharedResourceGroupName
   location = var.location
   tags     = local.tags
 }
 
 resource "azurerm_resource_group" "apim" {
+  provider = azurerm.apim
   name     = local.apimResourceGroupName
   location = var.location
   tags     = local.tags
@@ -40,14 +43,17 @@ resource "azurerm_resource_group" "apim" {
 module "networking" {
   depends_on                   = [azurerm_resource_group.networking]
   source                       = "./modules/networking"
+  providers = {
+    azurerm = azurerm.networking
+  }
   location                     = var.location
   resourceGroupName            = azurerm_resource_group.networking.name
   resourceSuffix               = local.resourceSuffix
   environment                  = var.environment
-  appGatewayAddressPrefix      = var.appGatewayAddressPrefix
-  apimCSVNetNameAddressPrefix  = var.apimCSVNetNameAddressPrefix
-  privateEndpointAddressPrefix = var.privateEndpointAddressPrefix
-  deploymentAddressPrefix      = var.deploymentAddressPrefix
+  appGatewayAddressPrefix      = var.app_gateway_address_prefix
+  apimCSVNetNameAddressPrefix  = var.apim_vnet_address_prefix
+  privateEndpointAddressPrefix = var.private_endpoint_address_prefix
+  deploymentAddressPrefix      = var.deployment_address_prefix
   zones                        = var.zones
 }
 
@@ -57,62 +63,73 @@ module "networking" {
 module "shared" {
   depends_on           = [module.networking]
   source               = "./modules/shared"
+  providers = {
+    azurerm = azurerm.shared
+  }
   location             = var.location
   resourceGroupName    = azurerm_resource_group.shared.name
   resourceSuffix       = local.resourceSuffix
-  additionalClientIds  = var.additionalClientIds
+  additionalClientIds  = var.additional_client_ids
   keyVaultName         = local.keyVaultName
-  keyVaultSku          = var.keyVaultSku
+  keyVaultSku          = var.key_vault_sku
   deploymentSubnetId   = module.networking.deploymentSubnetId
   storage_account_name = substr(lower(replace("stdep${local.resourceSuffix}", "-", "")), 0, 24)
+  tags                 = local.tags
+}
+
+#-------------------------------
+# DNS Zone for APIM (using generic shared module)
+#-------------------------------
+module "apim_dns_zone" {
+  depends_on                  = [azurerm_resource_group.networking, module.networking]
+  source                      = "./modules/shared/private_dns_zone"
+  name                        = "privatelink.azure-api.net"
+  resource_group_name         = azurerm_resource_group.networking.name
+  virtual_networks_to_link_id = module.networking.vnetId
+  tags                        = local.tags
 }
 
 #-------------------------------
 # APIM Module - Standard v2 with Private Endpoints
 #-------------------------------
 module "apim" {
-  depends_on                  = [module.shared, module.networking]
+  depends_on                  = [module.shared, module.networking, module.apim_dns_zone]
   source                      = "./modules/apim"
+  providers = {
+    azurerm = azurerm.apim
+  }
   location                    = var.location
   resourceGroupName           = azurerm_resource_group.apim.name
   networkingResourceGroupName = azurerm_resource_group.networking.name
   resourceSuffix              = local.resourceSuffix
-  environment                 = var.environment
   privateEndpointSubnetId     = module.networking.privateEndpointSubnetId
-  vnetId                      = module.networking.vnetId
   instrumentationKey          = module.shared.instrumentationKey
-  workspaceId                 = module.shared.workspaceId
+  appInsightsConnectionString = module.shared.appInsightsConnectionString
   appInsightsId               = module.shared.appInsightsId
   sharedResourceGroupName     = azurerm_resource_group.shared.name
   keyVaultName                = local.keyVaultName
-  skuName                     = var.apimSkuName
+  skuName                     = var.apim_sku_name
 }
 
 #-------------------------------
 # Application Gateway Module
 #-------------------------------
 module "gateway" {
-  depends_on              = [module.networking, module.apim, module.shared]
+  depends_on              = [module.networking, module.apim, module.shared, module.apim_dns_zone]
   source                  = "./modules/gateway"
+  providers = {
+    azurerm = azurerm.networking
+  }
   location                = var.location
   resourceGroupName       = azurerm_resource_group.networking.name
   resourceSuffix          = local.resourceSuffix
-  environment             = var.environment
-  appGatewayFqdn          = var.appGatewayFqdn
-  appGatewayCertType      = var.appGatewayCertType
-  certificate_password    = var.certificatePassword
-  certificate_path        = var.certificatePath
+  appGatewayFqdn          = var.app_gateway_fqdn
+  appGatewayCertType      = var.app_gateway_cert_type
+  certificate_password    = var.certificate_password
+  certificate_path        = var.certificate_path
   subnetId                = module.networking.appGatewaySubnetId
   # For Standard v2, APIM FQDN resolves via private DNS zone to private endpoint IP
-  primaryBackendendFqdn   = module.apim.backendFqdn
+  primaryBackendFqdn      = module.apim.apimPrivateFqdn
   keyvaultId              = module.shared.keyVaultId
-  keyVaultName            = module.shared.keyVaultName
-  sharedResourceGroupName = azurerm_resource_group.shared.name
-  deploymentIdentityName  = module.shared.deploymentIdentityName
-  deploymentSubnetId      = module.networking.deploymentSubnetId
-  deploymentStorageName   = module.shared.deploymentStorageName
 }
-
-# NOTE: No separate DNS module needed for Standard v2 
-# The private DNS zone is created by the apim-v2 module
 

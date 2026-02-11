@@ -11,7 +11,7 @@ resource "azurerm_log_analytics_workspace" "log_analytics_workspace" {
   tags                = var.tags
 
   lifecycle {
-    #prevent_destroy = true
+    prevent_destroy = true
   }
 }
 
@@ -28,6 +28,6 @@ resource "azurerm_application_insights" "shared_apim_insight" {
   tags                = var.tags
 
   lifecycle {
-    #prevent_destroy = true
+    prevent_destroy = true
   }
 }

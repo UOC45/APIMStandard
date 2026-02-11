@@ -1,6 +1,40 @@
 # APIM Standard v2 with Private Endpoints
 # Standard v2 does NOT support VNet injection - uses private endpoints instead
 
+#-------------------------------
+# DEPLOYMENT PREREQUISITES
+#-------------------------------
+# This module requires the following pre-existing Azure resources:
+#
+# 1. Network Resources (via networking module):
+#    - Virtual Network (VNet) with ID in var.vnetId
+#    - Private Endpoint Subnet with ID in var.privateEndpointSubnetId
+#    - Networking Resource Group
+#
+# 2. DNS Resources (must be created before this module):
+#    - Private DNS Zone: privatelink.azure-api.net
+#    - Virtual Network Link: apim-dns-vnet-link (linking VNet to DNS zone)
+#    These are referenced as data sources and MUST exist in the networking resource group
+#
+# 3. Shared Resources (via shared module):
+#    - Azure Key Vault with name in var.keyVaultName (in shared resource group)
+#    - Application Insights instance with ID in var.appInsightsId
+#    - Application Insights instrumentation key in var.instrumentationKey
+#
+# 4. Module Variables Required:
+#    - var.location: Azure region for APIM deployment
+#    - var.resourceGroupName: APIM resource group (created by caller)
+#    - var.networkingResourceGroupName: Networking resource group name
+#    - var.sharedResourceGroupName: Shared resources group name
+#    - var.resourceSuffix: Naming suffix for resources
+#    - var.publisherName: APIM publisher name
+#    - var.publisherEmail: APIM publisher email
+#    - var.skuName: APIM SKU (e.g., "Standard_1", "Developer_1")
+#
+# Note: If DNS zone or VNet link do not exist, terraform plan/apply will fail
+#       with a 404 error. Ensure networking module is deployed first.
+#-------------------------------
+
 terraform {
   required_providers {
     azurerm = {
@@ -26,6 +60,11 @@ resource "azurerm_user_assigned_identity" "apimIdentity" {
   name                = local.apimIdentityName
   location            = var.location
   resource_group_name = var.resourceGroupName
+}
+
+data "azurerm_private_dns_zone" "apim" {
+  name                = "privatelink.azure-api.net"
+  resource_group_name = var.networkingResourceGroupName
 }
 
 data "azurerm_key_vault" "keyVault" {
@@ -61,32 +100,11 @@ resource "azurerm_api_management" "apim_v2" {
 
   lifecycle {
     ignore_changes = [public_network_access_enabled]
+    prevent_destroy = true
   }
 }
 
-#-------------------------------
-# Private DNS Zone for APIM
-#-------------------------------
-resource "azurerm_private_dns_zone" "apim_dns_zone" {
-  name                = "privatelink.azure-api.net"
-  resource_group_name = var.networkingResourceGroupName
 
-  lifecycle {
-    #prevent_destroy = true
-  }
-}
-
-resource "azurerm_private_dns_zone_virtual_network_link" "apim_dns_vnet_link" {
-  name                  = "apim-dns-vnet-link"
-  resource_group_name   = var.networkingResourceGroupName
-  private_dns_zone_name = azurerm_private_dns_zone.apim_dns_zone.name
-  virtual_network_id    = var.vnetId
-  registration_enabled  = false
-
-  lifecycle {
-    #prevent_destroy = true
-  }
-}
 
 #-------------------------------
 # Private Endpoint for APIM Gateway
@@ -106,7 +124,7 @@ resource "azurerm_private_endpoint" "apim_gateway_pe" {
 
   private_dns_zone_group {
     name                 = "apim-dns-zone-group"
-    private_dns_zone_ids = [azurerm_private_dns_zone.apim_dns_zone.id]
+    private_dns_zone_ids = [data.azurerm_private_dns_zone.apim.id]
   }
 
   lifecycle {
@@ -132,7 +150,9 @@ resource "azurerm_api_management_logger" "apim_logger" {
   resource_id         = var.appInsightsId
 
   application_insights {
-    instrumentation_key = var.instrumentationKey
+    # Use connection_string (preferred) with fallback to instrumentation_key (deprecated)
+    connection_string   = var.appInsightsConnectionString != "" ? var.appInsightsConnectionString : null
+    instrumentation_key = var.appInsightsConnectionString == "" ? var.instrumentationKey : null
   }
 
   lifecycle {

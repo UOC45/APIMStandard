@@ -23,12 +23,3 @@ output "vnetName" {
   description = "The name of the Virtual Network"
 }
 
-output "appGatewayPublicIpId" {
-  value       = azurerm_public_ip.appgw_pip.id
-  description = "The ID of the Application Gateway Public IP"
-}
-
-output "appGatewayPublicIpAddress" {
-  value       = azurerm_public_ip.appgw_pip.ip_address
-  description = "The IP address of the Application Gateway Public IP"
-}

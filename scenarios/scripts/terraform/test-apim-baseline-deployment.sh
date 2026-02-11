@@ -11,6 +11,13 @@ env_file="./.env"
 if [[ -f "$env_file" ]]; then
 	echo "Found .env, sourcing it..."
   cat "$env_file"
+	# Validate .env file contains only safe variable assignments and comments
+	if grep -qvE '^\s*(#.*|[A-Za-z_][A-Za-z_0-9]*=.*|\s*)$' "$env_file"; then
+	  echo "ERROR: .env file contains invalid lines. Only KEY=VALUE pairs and comments (#) are allowed."
+	  echo "Offending lines:"
+	  grep -nvE '^\s*(#.*|[A-Za-z_][A-Za-z_0-9]*=.*|\s*)$' "$env_file"
+	  exit 1
+	fi
 	source "$env_file"
 else
   echo "###########################"
@@ -153,26 +160,34 @@ echo "Validating deployment..."
   PRIMARY_KEY=$(echo "$output" | jq -r '.primaryKey')
 
 
+  MASKED_KEY="${PRIMARY_KEY:0:4}****${PRIMARY_KEY: -4}"
+
   if [[ "$MULTI_REGION" == "true" ]]; then
     
     APPGWNAME_DASHES="${APPGATEWAY_FQDN//./-}"
     TRAFFIC_MANAGER_FQDN="${APPGWNAME_DASHES}.trafficmanager.net"
-    #testUri="curl -k -v https://${TRAFFIC_MANAGER_FQDN}/status-0123456789abcdef"
-    testUri="curl -k -v -H 'Ocp-Apim-Subscription-Key: ${PRIMARY_KEY}' -H 'Content-Type: application/json' https://${TRAFFIC_MANAGER_FQDN}/echo/resource?param1=sample"
     echo "Testing against ${TRAFFIC_MANAGER_FQDN}"
-    eval ${testUri}
+    curl -k -v \
+      -H "Ocp-Apim-Subscription-Key: ${PRIMARY_KEY}" \
+      -H "Content-Type: application/json" \
+      "https://${TRAFFIC_MANAGER_FQDN}/echo/resource?param1=sample"
 
-    echo "Test the deployment by running the following command: ${testUri}"
+    echo "Test the deployment by running the following command:"
+    echo "curl -k -v -H 'Ocp-Apim-Subscription-Key: ${MASKED_KEY}' -H 'Content-Type: application/json' https://${TRAFFIC_MANAGER_FQDN}/echo/resource?param1=sample"
     echo -e "\n"
 
   else
     
     APPGATEWAYPUBLICIPADDRESS=$(az network public-ip show --resource-group "$NETWORK_RESOURCE_GROUP" --name "$APPGATEWAY_PIP" --query ipAddress -o tsv)
-    testUri="curl -k -v -H 'Host: ${APPGATEWAY_FQDN}' -H 'Ocp-Apim-Subscription-Key: ${PRIMARY_KEY}' -H 'Content-Type: application/json' https://${APPGATEWAYPUBLICIPADDRESS}/echo/resource?param1=sample"
     echo "Testing against ${APPGATEWAY_FQDN}"
-    eval ${testUri}
+    curl -k -v \
+      -H "Host: ${APPGATEWAY_FQDN}" \
+      -H "Ocp-Apim-Subscription-Key: ${PRIMARY_KEY}" \
+      -H "Content-Type: application/json" \
+      "https://${APPGATEWAYPUBLICIPADDRESS}/echo/resource?param1=sample"
 
-    echo "Test the deployment by running the following command: ${testUri}"
+    echo "Test the deployment by running the following command:"
+    echo "curl -k -v -H 'Host: ${APPGATEWAY_FQDN}' -H 'Ocp-Apim-Subscription-Key: ${MASKED_KEY}' -H 'Content-Type: application/json' https://${APPGATEWAYPUBLICIPADDRESS}/echo/resource?param1=sample"
     echo -e "\n"
 
   fi

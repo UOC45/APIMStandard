@@ -9,8 +9,10 @@ deployment/bicep/localtestscript.ps1
 # Local .terraform directories
 **/.terraform/*
 
-output.json
-parameters.json
+# Deployment output files (may contain subscription keys)
+**/output.json
+**/parameters.json
+!**/sample.parameters.json
 
 # .tfstate files
 *.tfstate
@@ -344,7 +346,24 @@ scenarios/apim-baseline/bicep/parameters.json
 *.http
 
 *-backend.hcl
+!sample.backend.hcl
+!**/sample.backend.hcl
 scenarios/scripts/terraform/apim-self-signed.crt
 scenarios/scripts/terraform/apim-self-signed.key
 scenarios/scripts/terraform/tmp-self-signed-cert.conf
 scenarios/scripts/terraform/.env
+
+# Environment files (allow sample files)
+**/.env
+!**/sample.env
+!**/sample*.env
+
+# Certificate and key files
+*.pem
+*.key
+!scenarios/certs/place-custom-cert-here
+
+# Ensure certs folder only has placeholder
+scenarios/certs/*.pfx
+scenarios/certs/*.pem
+scenarios/certs/*.key

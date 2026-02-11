@@ -3,8 +3,15 @@ output "workspaceId" {
   value       = azurerm_log_analytics_workspace.log_analytics_workspace.id
 }
 
+output "appInsightsConnectionString" {
+  description = "The connection string of the Application Insights instance"
+  value       = azurerm_application_insights.shared_apim_insight.connection_string
+  sensitive   = true
+}
+
+# Deprecated: Use appInsightsConnectionString instead
 output "instrumentationKey" {
-  description = "The instrumentation key of the Application Insights instance"
+  description = "The instrumentation key of the Application Insights instance (deprecated - use appInsightsConnectionString)"
   value       = azurerm_application_insights.shared_apim_insight.instrumentation_key
   sensitive   = true
 }

@@ -1,9 +1,21 @@
 # Azure API Management - Secure Baseline [Terraform]
+
+This deployment uses **APIM Standard v2 with Private Endpoints** for network isolation.
+
 - Single Region Deployment
-- Optional Multi-Region High Availability
-- Optional Zone Redundancy
+- Private Endpoint connectivity (no VNet injection required)
+- Automatic DNS registration via Private DNS Zones
 
 This is the Terraform-based deployment guide for [Scenario 1: Azure API Management - Secure Baseline](../README.md).
+
+## Architecture Overview
+
+```
+Internet → Application Gateway (WAF) → Private Endpoint → APIM Standard v2
+                                              ↓
+                                    Private DNS Zone
+                                (privatelink.azure-api.net)
+```
 
 ## Sections
 - [Prerequisites](#prerequisites)
@@ -58,7 +70,7 @@ This will yield a working deployment for testing/poc, with no customizations.
    cd apim-landing-zone-accelerator/scenarios/scripts/terraform
    
    # Use the provided sample environment file
-   cp sample.env .env  to create one and edit as needed
+   cp sample.env .env  # Create one and edit as needed
 
    # Deploy the APIM baseline
    ./deploy-apim-baseline.sh
@@ -84,48 +96,41 @@ Review and update deployment parameters.
    | Name  | Description | Default | Example(s) |
    | :---- | :---------- | :------ | :--------- |
    | `AZURE_LOCATION` | The Azure location to deploy to. | **eastus2** | **eastus2** |
-   | `MULT_REGION`| Should this deployment extend to a secondary location? |  **false**          | **true** |
-   | `AZURE_LOCATION2`| The Azure secondary location to deploy to? |  **centralus**          | **centralus** |
-   | `ZONE_REDUNDANT` | Should the deployment be zone redundant. | **false** | **true** |
    | `RESOURCE_NAME_PREFIX` | A suffix for naming. | **apimdemo** | **appname** |
    | `ENVIRONMENT_TAG` | A tag that will be included in the naming. | **dev** | **stage** |
-   | `APPGATEWAY_FQDN` | The Azure location to deploy to. | **apim.example.com** | **my.org.com** |
+   | `APPGATEWAY_FQDN` | The FQDN for the Application Gateway. | **apim.example.com** | **my.org.com** |
    | `CERT_TYPE` | selfsigned will create a self-signed certificate for the APPGATEWAY_FQDN. custom will use an existing certificate in pfx format that needs to be available in the [certs](../../certs) folder and named appgw.pfx | **selfsigned** | **custom** |
    | `CERT_PWD` | The password for the pfx certificate. Only required if CERT_TYPE is custom. | **N/A** | **password123** |
+   | `APIM_SKU_NAME` | The SKU for APIM Standard v2. Format: `StandardV2_X` or `BasicV2_X` where X is capacity. | **StandardV2_1** | **StandardV2_2**, **BasicV2_1** |
    | `RANDOM_IDENTIFIER` | Optional 3 character random string to ensure deployments are unique. Automatically assigned if not provided | **abc** | **pqr** |
 
    ### examples `.env` file
-   - Single region, Single Zone deployment with Developer SKU
+   - Standard v2 deployment (recommended)
    ```bash
       AZURE_LOCATION='eastus2'
       RESOURCE_NAME_PREFIX='lzv01'
       ENVIRONMENT_TAG='dev'
       APPGATEWAY_FQDN='apim.example.com'
       CERT_TYPE='selfsigned'
-      ZONE_REDUNDANT='false'
-      MULTI_REGION='false'
-      AZURE_LOCATION2=''
+      APIM_SKU_NAME='StandardV2_1'
    ```
-   - Single region and Zone redundant deployment with Premium SKU
+   - Basic v2 deployment (cost-optimized)
    ```bash
       AZURE_LOCATION='eastus2'
       RESOURCE_NAME_PREFIX='lzv01'
       ENVIRONMENT_TAG='dev'
       APPGATEWAY_FQDN='apim.example.com'
       CERT_TYPE='selfsigned'
-      ZONE_REDUNDANT='true'
-      MULTI_REGION='false'
+      APIM_SKU_NAME='BasicV2_1'
    ```
-   - Multi-region and Zone Redundant deployment with Premium SKU
+   - Higher capacity Standard v2 deployment
    ```bash
       AZURE_LOCATION='eastus2'
       RESOURCE_NAME_PREFIX='lzv01'
       ENVIRONMENT_TAG='dev'
       APPGATEWAY_FQDN='apim.example.com'
       CERT_TYPE='selfsigned'
-      ZONE_REDUNDANT='true'
-      MULTI_REGION='true'
-      AZURE_LOCATION2='centralus'
+      APIM_SKU_NAME='StandardV2_2'
    ```
 
 

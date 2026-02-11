@@ -2,6 +2,14 @@
 
 set -e
 
+# Required tooling checks
+for cmd in az jq curl; do
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "ERROR: Required command '$cmd' not found in PATH." 1>&2
+    exit 6
+  fi
+done
+
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 env_file="./.env"
 
@@ -28,6 +36,13 @@ fi
 if [[ -f "$env_file" ]]; then
 	echo "Found .env, sourcing it..."
   cat "$env_file"
+	# Validate .env file contains only safe variable assignments and comments
+	if grep -qvE '^\s*(#.*|[A-Za-z_][A-Za-z_0-9]*=.*|\s*)$' "$env_file"; then
+	  echo "ERROR: .env file contains invalid lines. Only KEY=VALUE pairs and comments (#) are allowed."
+	  echo "Offending lines:"
+	  grep -nvE '^\s*(#.*|[A-Za-z_][A-Za-z_0-9]*=.*|\s*)$' "$env_file"
+	  exit 1
+	fi
 	source "$env_file"
 else
   echo "###########################"
@@ -262,18 +277,24 @@ else
 
   echo "Initializing Terraform with local backend..."
   cd "../../apim-baseline/terraform" || exit
+  # Clean local state to avoid stale applies
+  rm -rf .terraform
+  rm -f terraform.lock.hcl
+  rm -f terraform.tfstate
+  rm -f terraform.tfstate.backup
   terraform init -backend=false
 
 fi
 
 # Check if there is an existing local state file
-if [[ -f "${ENVIRONMENT_TAG}.tfstate" ]]; then
+if [[ -f "terraform.tfstate" ]]; then
   echo -n "Found existing local state files..."
   if [[ "$delete_local_state" == "true" ]]; then
     echo "Deleting local Terraform state files..."
     rm -f "${ENVIRONMENT_TAG}.tfplan"
     rm -f "${ENVIRONMENT_TAG}.tfvars"
     rm -f "${ENVIRONMENT_TAG}-backend.hcl"
+    rm -f terraform.tfstate terraform.tfstate.backup
   else
     echo "and reusing it. Use --delete-local-state to remove it."
   fi
@@ -332,45 +353,66 @@ echo "Validating deployment..."
   echo "Obtaining Access Token..."
   TOKEN=$(az account get-access-token --query accessToken --output tsv)
 
+  # APIM REST API version (override with APIM_API_VERSION env var if needed)
+  APIM_API_VERSION=${APIM_API_VERSION:-2023-09-01}
+
   # get the subscription id based on the subscription display name
   echo "Getting API Management Subscription info ... [1/3]"
   API_MANAGEMENT_INFO=$(curl -s -S -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" \
-    "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$APIM_RESOURCE_GROUP/providers/Microsoft.ApiManagement/service/$APIM_SERVICE_NAME/subscriptions?api-version=2022-08-01")
+    "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$APIM_RESOURCE_GROUP/providers/Microsoft.ApiManagement/service/$APIM_SERVICE_NAME/subscriptions?api-version=${APIM_API_VERSION}")
   
   echo "Getting API Management Subscription info ... [2/3]"
   API_SUBSCRIPTION_ID=$(echo $API_MANAGEMENT_INFO | jq -r --arg API_SUBSCRIPTION_NAME "$API_SUBSCRIPTION_NAME" '.value[] | select(.properties.displayName == $API_SUBSCRIPTION_NAME) | .name' )
+
+  if [[ -z "$API_SUBSCRIPTION_ID" || "$API_SUBSCRIPTION_ID" == "null" ]]; then
+    echo "ERROR: Failed to find subscription named '$API_SUBSCRIPTION_NAME' in APIM instance. Raw response: $API_MANAGEMENT_INFO" 1>&2
+    exit 7
+  fi
   echo "Getting API Management Subscription info ... [3/3]"
   # Call the Azure REST API to get subscription keys
   output=$(curl -s -S -X POST -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" \
     -H "Content-Length: 0" \
-    "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$APIM_RESOURCE_GROUP/providers/Microsoft.ApiManagement/service/$APIM_SERVICE_NAME/subscriptions/$API_SUBSCRIPTION_ID/listSecrets?api-version=2022-08-01")
+    "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$APIM_RESOURCE_GROUP/providers/Microsoft.ApiManagement/service/$APIM_SERVICE_NAME/subscriptions/$API_SUBSCRIPTION_ID/listSecrets?api-version=${APIM_API_VERSION}")
 
   # Extract the subscription keys
   PRIMARY_KEY=$(echo "$output" | jq -r '.primaryKey')
 
+  if [[ -z "$PRIMARY_KEY" || "$PRIMARY_KEY" == "null" ]]; then
+    echo "ERROR: Failed to retrieve primary subscription key for '$API_SUBSCRIPTION_ID'. Raw response: $output" 1>&2
+    exit 7
+  fi
+
+
+  MASKED_KEY="${PRIMARY_KEY:0:4}****${PRIMARY_KEY: -4}"
 
   if [[ "$MULTI_REGION" == "true" ]]; then
     
     APPGWNAME_DASHES="${APPGATEWAY_FQDN//./-}"
     TRAFFIC_MANAGER_FQDN="${APPGWNAME_DASHES}.trafficmanager.net"
-    #testUri="curl -k -v https://${TRAFFIC_MANAGER_FQDN}/status-0123456789abcdef"
-    testUri="curl -k -v -H 'Ocp-Apim-Subscription-Key: ${PRIMARY_KEY}' -H 'Content-Type: application/json' https://${TRAFFIC_MANAGER_FQDN}/echo/resource?param1=sample"
     echo "Testing against ${TRAFFIC_MANAGER_FQDN}"
-    eval ${testUri}
+    curl -k -v \
+      -H "Ocp-Apim-Subscription-Key: ${PRIMARY_KEY}" \
+      -H "Content-Type: application/json" \
+      "https://${TRAFFIC_MANAGER_FQDN}/echo/resource?param1=sample"
 
-    echo "Test the deployment by running the following command: ${testUri}"
+    echo "Test the deployment by running the following command:"
+    echo "curl -k -v -H 'Ocp-Apim-Subscription-Key: ${MASKED_KEY}' -H 'Content-Type: application/json' https://${TRAFFIC_MANAGER_FQDN}/echo/resource?param1=sample"
     echo -e "\n"
 
   else
     
     APPGATEWAYPUBLICIPADDRESS=$(az network public-ip show --resource-group "$NETWORK_RESOURCE_GROUP" --name "$APPGATEWAY_PIP" --query ipAddress -o tsv)
-    testUri="curl -k -v -H 'Host: ${APPGATEWAY_FQDN}' -H 'Ocp-Apim-Subscription-Key: ${PRIMARY_KEY}' -H 'Content-Type: application/json' https://${APPGATEWAYPUBLICIPADDRESS}/echo/resource?param1=sample"
     echo "Testing against ${APPGATEWAY_FQDN}"
-    eval ${testUri}
+    curl -k -v \
+      -H "Host: ${APPGATEWAY_FQDN}" \
+      -H "Ocp-Apim-Subscription-Key: ${PRIMARY_KEY}" \
+      -H "Content-Type: application/json" \
+      "https://${APPGATEWAYPUBLICIPADDRESS}/echo/resource?param1=sample"
 
-    echo "Test the deployment by running the following command: ${testUri}"
+    echo "Test the deployment by running the following command:"
+    echo "curl -k -v -H 'Host: ${APPGATEWAY_FQDN}' -H 'Ocp-Apim-Subscription-Key: ${MASKED_KEY}' -H 'Content-Type: application/json' https://${APPGATEWAYPUBLICIPADDRESS}/echo/resource?param1=sample"
     echo -e "\n"
 
   fi

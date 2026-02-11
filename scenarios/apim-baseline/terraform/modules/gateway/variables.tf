@@ -9,12 +9,6 @@ variable "resourceSuffix" {
   description = "A suffix for naming"
 }
 
-variable "environment" {
-  type        = string
-  description = "Environment"
-  default     = "dev"
-}
-
 variable "resourceGroupName" {
   type        = string
   description = "The name of the resource group"
@@ -27,18 +21,8 @@ variable "appGatewayCertType" {
 
 variable "keyvaultId" {
   type        = string
-  description = ""
+  description = "The ID of the Key Vault"
   default     = null
-}
-
-variable "keyVaultName" {
-  type        = string
-  description = ""
-}
-
-variable "deploymentIdentityName" {
-  type        = string
-  description = "deployment identity name"
 }
 
 variable "appGatewayFqdn" {
@@ -49,43 +33,28 @@ variable "appGatewayFqdn" {
 
 variable "certificate_path" {
   type        = string
-  description = ""
+  description = "The file path to the PFX certificate for the Application Gateway SSL termination"
   default     = null
 }
 
 variable "certificate_password" {
   type        = string
   sensitive   = true
-  description = ""
+  description = "The password for the PFX certificate used by the Application Gateway"
 }
 
 variable "subnetId" {
   type        = string
-  description = ""
+  description = "The subnet ID for the Application Gateway deployment"
 }
 
-variable "primaryBackendendFqdn" {
+variable "primaryBackendFqdn" {
   type        = string
-  description = ""
+  description = "The FQDN of the primary backend (APIM gateway) for routing traffic"
 }
 
 variable "probe_url" {
   type        = string
-  description = ""
+  description = "The URL path used for the Application Gateway health probe against the backend"
   default     = "/status-0123456789abcdef"
-}
-
-variable "sharedResourceGroupName" {
-  type        = string
-  description = "Resource group with deploymnent Identity"
-}
-
-variable "deploymentSubnetId" {
-  type        = string
-  description = "The subnet id where the deployment will run"
-}
-
-variable "deploymentStorageName" {
-  type        = string
-  description = "The name of the storage account to use for deployment"
 }

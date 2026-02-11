@@ -216,18 +216,3 @@ resource "azurerm_subnet" "deploy_subnet" {
   }
 }
 
-#-------------------------------
-# Public IP for Application Gateway
-#-------------------------------
-resource "azurerm_public_ip" "appgw_pip" {
-  name                = local.appgateway_public_ipname
-  location            = var.location
-  resource_group_name = var.resourceGroupName
-  sku                 = "Standard"
-  allocation_method   = "Static"
-  zones               = length(var.zones) > 0 ? var.zones : null
-
-  lifecycle {
-    #prevent_destroy = true
-  }
-}

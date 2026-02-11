@@ -60,7 +60,7 @@ output "keyVaultName" {
 
 output "appGatewayPublicIpAddress" {
   description = "The public IP address of the Application Gateway"
-  value       = module.networking.appGatewayPublicIpAddress
+  value       = module.gateway.publicIpAddress
 }
 
 output "subscriptionKey" {
@@ -71,5 +71,5 @@ output "subscriptionKey" {
 
 output "testCommand" {
   description = "A curl command to test the deployment"
-  value       = "curl -k -H \"Ocp-Apim-Subscription-Key: <subscription-key>\" https://${var.appGatewayFqdn}/echo/resource?param1=sample --resolve ${var.appGatewayFqdn}:443:${module.networking.appGatewayPublicIpAddress}"
+  value       = "curl -k -H \"Ocp-Apim-Subscription-Key: <subscription-key>\" https://${var.app_gateway_fqdn}/echo/resource?param1=sample --resolve ${var.app_gateway_fqdn}:443:${module.gateway.publicIpAddress}"
 }

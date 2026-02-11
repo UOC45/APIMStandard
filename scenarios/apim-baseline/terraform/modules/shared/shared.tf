@@ -19,6 +19,10 @@ resource "azurerm_key_vault" "key_vault" {
     bypass         = "AzureServices"
     default_action = "Deny"
   }
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 locals {
