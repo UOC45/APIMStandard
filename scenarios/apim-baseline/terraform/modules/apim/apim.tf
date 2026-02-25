@@ -163,9 +163,7 @@ resource "azurerm_api_management_logger" "apim_logger" {
   resource_id         = var.appInsightsId
 
   application_insights {
-    # Use connection_string (preferred) with fallback to instrumentation_key (deprecated)
-    connection_string   = var.appInsightsConnectionString != "" ? var.appInsightsConnectionString : null
-    instrumentation_key = var.appInsightsConnectionString == "" ? var.instrumentationKey : null
+    instrumentation_key = var.instrumentationKey
   }
 
   lifecycle {
