@@ -81,8 +81,9 @@ resource "azurerm_api_management" "apim_v2" {
   resource_group_name = var.resourceGroupName
   publisher_name      = var.publisherName
   publisher_email     = var.publisherEmail
+  virtual_network_type = "None"
 
-  # Standard v2 SKU - does NOT support virtual_network_type
+  # Standard v2 SKU - does NOT support VNet injection - virtual_network_type must remain 'None'
   sku_name = var.skuName
 
   # Must be enabled during creation, will be disabled via azapi after private endpoint is configured
@@ -90,8 +91,15 @@ resource "azurerm_api_management" "apim_v2" {
 
   min_api_version = "2019-12-01"
 
-  # NOTE: No virtual_network_configuration block for Standard v2
-  # Network isolation is achieved via private endpoints
+  dynamic "virtual_network_configuration" {
+    for_each = var.enableOutboundVnetIntegration ? [1] : []
+    content {
+      subnet_id = var.outboundIntegrationSubnetId
+    }
+  }
+
+  # NOTE: Outbound integration is optional for Standard v2 / Premium v2.
+  # Inbound network isolation in this baseline is achieved via private endpoints.
 
   identity {
     type         = "UserAssigned"
@@ -101,6 +109,10 @@ resource "azurerm_api_management" "apim_v2" {
   lifecycle {
     ignore_changes = [public_network_access_enabled]
     prevent_destroy = true
+    precondition {
+      condition     = !var.enableOutboundVnetIntegration || try(length(var.outboundIntegrationSubnetId) > 0, false)
+      error_message = "outboundIntegrationSubnetId must be provided when enableOutboundVnetIntegration is true."
+    }
   }
 }
 
@@ -131,6 +143,7 @@ resource "azurerm_private_endpoint" "apim_gateway_pe" {
     #prevent_destroy = true
   }
 }
+
 
 #-------------------------------
 # NOTE: Public network access remains enabled during deployment.

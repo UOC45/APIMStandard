@@ -44,6 +44,18 @@ variable "deploymentAddressPrefix" {
   default     = "10.2.8.0/24"
 }
 
+variable "enableApimOutboundVnetIntegration" {
+  description = "Enable outbound virtual network integration for APIM Standard v2 / Premium v2 with a dedicated delegated subnet"
+  type        = bool
+  default     = false
+}
+
+variable "apimOutboundAddressPrefix" {
+  description = "Dedicated subnet address prefix for APIM outbound virtual network integration"
+  type        = string
+  default     = "10.2.9.0/24"
+}
+
 variable "zones" {
   description = "Availability zones for zone-redundant resources. Use empty list for regions without zone support."
   type        = list(string)

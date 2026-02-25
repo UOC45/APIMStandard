@@ -76,6 +76,18 @@ variable "privateEndpointSubnetId" {
   }
 }
 
+variable "enableOutboundVnetIntegration" {
+  description = "Enable outbound virtual network integration for APIM Standard v2 / Premium v2"
+  type        = bool
+  default     = false
+}
+
+variable "outboundIntegrationSubnetId" {
+  description = "Dedicated delegated subnet ID for APIM outbound virtual network integration"
+  type        = string
+  default     = null
+}
+
 variable "appInsightsConnectionString" {
   type        = string
   description = "App Insights connection string (preferred over instrumentation key)"

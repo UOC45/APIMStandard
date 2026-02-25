@@ -54,6 +54,8 @@ module "networking" {
   apimCSVNetNameAddressPrefix  = var.apim_vnet_address_prefix
   privateEndpointAddressPrefix = var.private_endpoint_address_prefix
   deploymentAddressPrefix      = var.deployment_address_prefix
+  enableApimOutboundVnetIntegration = var.enable_apim_outbound_vnet_integration
+  apimOutboundAddressPrefix    = var.apim_outbound_address_prefix
   zones                        = var.zones
 }
 
@@ -103,6 +105,8 @@ module "apim" {
   networkingResourceGroupName = azurerm_resource_group.networking.name
   resourceSuffix              = local.resourceSuffix
   privateEndpointSubnetId     = module.networking.privateEndpointSubnetId
+  enableOutboundVnetIntegration = var.enable_apim_outbound_vnet_integration
+  outboundIntegrationSubnetId = module.networking.apimOutboundSubnetId
   instrumentationKey          = module.shared.instrumentationKey
   appInsightsConnectionString = module.shared.appInsightsConnectionString
   appInsightsId               = module.shared.appInsightsId
@@ -130,6 +134,7 @@ module "gateway" {
   subnetId                = module.networking.appGatewaySubnetId
   # For Standard v2, APIM FQDN resolves via private DNS zone to private endpoint IP
   primaryBackendFqdn      = module.apim.apimPrivateFqdn
+  backendHostName         = module.apim.apimPublicFqdn
   keyvaultId              = module.shared.keyVaultId
 }
 
