@@ -13,6 +13,11 @@ output "deploymentSubnetId" {
   description = "The ID of the deployment subnet"
 }
 
+output "apimOutboundSubnetId" {
+  value       = try(azurerm_subnet.apim_outbound_subnet[0].id, null)
+  description = "The ID of the dedicated outbound integration subnet for APIM (null when disabled)"
+}
+
 output "vnetId" {
   value       = azurerm_virtual_network.apim_cs_vnet.id
   description = "The ID of the Virtual Network"

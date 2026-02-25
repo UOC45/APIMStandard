@@ -71,6 +71,7 @@ resource "azurerm_public_ip" "public_ip" {
   sku_tier            = "Regional"
   allocation_method   = "Static"
   ip_version          = "IPv4"
+  ip_tags             = { FirstPartyUsage = "/Unprivileged" }
   zones               = ["1", "2", "3"]
 
   lifecycle {
@@ -138,7 +139,7 @@ resource "azurerm_application_gateway" "network" {
     port                                = 443
     protocol                            = "Https"
     cookie_based_affinity               = "Disabled"
-    host_name                           = var.primaryBackendFqdn
+    host_name                           = coalesce(var.backendHostName, var.primaryBackendFqdn)
     pick_host_name_from_backend_address = false
     request_timeout                     = 20
     probe_name                          = local.httpsBackendProbeName
@@ -189,7 +190,7 @@ resource "azurerm_application_gateway" "network" {
   probe {
     name                                      = "APIM"
     protocol                                  = "Https"
-    host                                      = var.primaryBackendFqdn
+    host                                      = coalesce(var.backendHostName, var.primaryBackendFqdn)
     path                                      = var.probe_url
     interval                                  = 30
     timeout                                   = 30

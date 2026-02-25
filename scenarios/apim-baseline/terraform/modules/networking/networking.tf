@@ -5,9 +5,11 @@ locals {
   apim_cs_vnet_name            = "vnet-apim-cs-${var.resourceSuffix}"
   appgateway_subnet_name       = "snet-apgw-${var.resourceSuffix}"
   deploy_subnet_name           = "snet-deploy-${var.resourceSuffix}"
+  apim_outbound_subnet_name    = "snet-apim-outbound-${var.resourceSuffix}"
   appgateway_snnsg             = "nsg-apgw-${var.resourceSuffix}"
   private_endpoint_subnet_name = "snet-prep-${var.resourceSuffix}"
   private_endpoint_snnsg       = "nsg-prep-${var.resourceSuffix}"
+  apim_outbound_snnsg          = "nsg-apim-outbound-${var.resourceSuffix}"
   owner                        = "APIM Const Set"
   appgateway_public_ipname     = "pip-appgw-${var.resourceSuffix}"
 }
@@ -210,6 +212,75 @@ resource "azurerm_subnet" "deploy_subnet" {
       actions = ["Microsoft.Network/virtualNetworks/subnets/action"]
     }
   }
+
+  lifecycle {
+    #prevent_destroy = true
+  }
+}
+
+#-------------------------------
+# APIM outbound integration subnet (optional)
+#-------------------------------
+resource "azurerm_network_security_group" "apim_outbound_nsg" {
+  count               = var.enableApimOutboundVnetIntegration ? 1 : 0
+  name                = local.apim_outbound_snnsg
+  location            = var.location
+  resource_group_name = var.resourceGroupName
+
+  security_rule {
+    name                       = "AllowStorageOutbound443"
+    priority                   = 100
+    protocol                   = "Tcp"
+    destination_port_range     = "443"
+    access                     = "Allow"
+    direction                  = "Outbound"
+    source_port_range          = "*"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "Storage"
+  }
+
+  security_rule {
+    name                       = "AllowKeyVaultOutbound443"
+    priority                   = 110
+    protocol                   = "Tcp"
+    destination_port_range     = "443"
+    access                     = "Allow"
+    direction                  = "Outbound"
+    source_port_range          = "*"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "AzureKeyVault"
+  }
+
+  lifecycle {
+    #prevent_destroy = true
+  }
+}
+
+resource "azurerm_subnet" "apim_outbound_subnet" {
+  count                = var.enableApimOutboundVnetIntegration ? 1 : 0
+  name                 = local.apim_outbound_subnet_name
+  resource_group_name  = var.resourceGroupName
+  virtual_network_name = azurerm_virtual_network.apim_cs_vnet.name
+  address_prefixes     = [var.apimOutboundAddressPrefix]
+
+  delegation {
+    name = "apim-outbound-delegation"
+
+    service_delegation {
+      name    = "Microsoft.Web/serverFarms"
+      actions = ["Microsoft.Network/virtualNetworks/subnets/action"]
+    }
+  }
+
+  lifecycle {
+    #prevent_destroy = true
+  }
+}
+
+resource "azurerm_subnet_network_security_group_association" "apim_outbound_subnet" {
+  count                     = var.enableApimOutboundVnetIntegration ? 1 : 0
+  subnet_id                 = azurerm_subnet.apim_outbound_subnet[0].id
+  network_security_group_id = azurerm_network_security_group.apim_outbound_nsg[0].id
 
   lifecycle {
     #prevent_destroy = true

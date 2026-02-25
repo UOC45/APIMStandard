@@ -53,6 +53,12 @@ variable "primaryBackendFqdn" {
   description = "The FQDN of the primary backend (APIM gateway) for routing traffic"
 }
 
+variable "backendHostName" {
+  type        = string
+  description = "Optional host name to use for backend Host header and TLS SNI/probe validation"
+  default     = null
+}
+
 variable "probe_url" {
   type        = string
   description = "The URL path used for the Application Gateway health probe against the backend"
